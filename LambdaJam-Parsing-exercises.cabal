@@ -1,0 +1,47 @@
+name:                LambdaJam-Parsing-exercises
+version:             0.1.0.0
+synopsis:            Exercises for Parsing workshop at Lambda Jam 2019
+-- description:
+license:             BSD3
+license-file:        LICENSE
+author:              Ivan Lazar Miljenovic
+maintainer:          ivan.miljenovic@gmail.com
+-- copyright:
+-- category:
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Parsers.Simple
+
+                       Regex.Types
+                       Regex.SimpleParser
+
+  build-depends:       base >= 4.8 && < 5,
+                       deepseq >= 1.1.0.0 && < 1.5
+  hs-source-dirs:      lib
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+
+test-suite regex-test
+  type:                exitcode-stdio-1.0
+  main-is:             regex-tester.hs
+  build-depends:       LambdaJam-Parsing-exercises,
+                       base,
+                       hspec >= 2.6 && < 2.8
+
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+
+benchmark compare-parsers
+  type:                exitcode-stdio-1.0
+  main-is:             regex-comparison.hs
+  build-depends:       LambdaJam-Parsing-exercises,
+                       base,
+                       testbench >= 0.2.1 && < 0.3
+
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+  ghc-options:         -Wall

@@ -1,0 +1,9 @@
+resolver: lts-13.20
+
+packages:
+  - .
+
+extra-deps:
+  - testbench-0.2.1.3
+  - streaming-cassava-0.1.0.1
+  - streaming-with-0.2.2.1
