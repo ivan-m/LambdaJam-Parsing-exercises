@@ -22,7 +22,9 @@ main :: IO ()
 main = hspec $ do
   describe "parseRegex" $ do
     it "Parses empty regex" $
-      parseRegex "" `shouldBe` Just (Pattern [])
+      -- Represent an empty parser as an empty concatenation.  A
+      -- Pattern should never be empty.
+      parseRegex "" `shouldBe` Just (Pattern [ConcatenatedAtoms []])
 
     it "Parses ." $
       parseRegex "." `shouldBe` singleAtomM AnyChar
@@ -38,6 +40,15 @@ main = hspec $ do
 
     it "Parses nested patterns" $
       parseRegex "((.))" `shouldBe` singleAtomM (SubPattern (singleAtom (SubPattern (singleAtom AnyChar))))
+
+
+    describe "Allow empty alternation cases" $ do
+      it "Beginning" $
+        parseRegex "|a|b" `shouldBe` Just (mkPattern [[], [plainChar 'a'], [plainChar 'b']])
+      it "Middle" $
+        parseRegex "a||b" `shouldBe` Just (mkPattern [[plainChar 'a'], [], [plainChar 'b']])
+      it "End" $
+        parseRegex "a|b|" `shouldBe` Just (mkPattern [[plainChar 'a'], [plainChar 'b'], []])
 
     it "Parses complicated regex" $
       parseRegex "abc|(de)+f|ge?|[x-z]" `shouldBe` Just (mkPattern [ map plainChar ['a', 'b', 'c']
@@ -67,12 +78,6 @@ main = hspec $ do
 
       it "Multiple quantifiers" $
         parseRegex "a+*" `shouldBe` Nothing
-
-      it "Double alternation operator" $
-        parseRegex "a||b" `shouldBe` Nothing
-
-      it "Trailing alternation operator" $
-        parseRegex "a|b|" `shouldBe` Nothing
 
   describe "applyRegex" $ do
     describe "Empty regex" $ do

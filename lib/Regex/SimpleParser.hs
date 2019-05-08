@@ -30,11 +30,15 @@ parseRegex = runParserMaybe (parsePattern <* endOfInput)
 -- We want to make sure the parser reads the entire input; however, we
 -- don't put this in 'parsePattern' due to the recursive call.
 
+-- Because 'ConcatenatedAtoms' are allowed to be empty, parsing it
+-- will always succeed.  As such, there is no need for the extra test
+-- in 'sepBy'.
 parsePattern :: Parser Pattern
-parsePattern = Pattern <$> sepBy parseConcatenatedAtoms (char '|')
+parsePattern = Pattern <$> sepBy1 parseConcatenatedAtoms (char '|')
 
+-- We need to allow the empty case as that's valid!
 parseConcatenatedAtoms :: Parser ConcatenatedAtoms
-parseConcatenatedAtoms = ConcatenatedAtoms <$> some parseQuantifiedAtom
+parseConcatenatedAtoms = ConcatenatedAtoms <$> many parseQuantifiedAtom
 
 -- '(<**>)' is the same as '(<*>)' but in the opposite order.
 parseQuantifiedAtom :: Parser QuantifiedAtom
@@ -146,9 +150,6 @@ satisfiesRegex = error "undefined: satisfiesRegex"
 
 -- | Convert the supplied regular expression into a parser.  All we
 --   care is if the regex is satisfied, not the actual result.
---
---   You may wish to take into account the special case that the empty
---   regular expression should match the empty 'String'.
 regexToParser :: Pattern -> Parser ()
 regexToParser = error "undefined: regexToParser"
 
