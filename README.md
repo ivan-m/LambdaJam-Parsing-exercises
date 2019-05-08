@@ -22,6 +22,10 @@ benchmark section from [the cabal
 file](LambdaJam-Parsing-exercises.cabal) and ignore any suggestions to
 run them).
 
+You should probably do an initial build of the this repository before
+coming to the workshop to make sure you've downloaded all
+dependencies.
+
 You have a few options on how to build and run the exercises:
 
 1. `cabal-install`: I recommend you use the new Nix-style commands
