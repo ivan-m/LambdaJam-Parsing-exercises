@@ -21,3 +21,4 @@ cabal.project.local~
 .HTF/
 .ghc.environment.*
 /TAGS
+/stack.yaml.lock
