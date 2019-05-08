@@ -12,9 +12,27 @@ module Main (main) where
 
 import Regex.Types
 
+import qualified Regex.CommitParser as CommitParser
 import qualified Regex.SimpleParser as SimpleParser
 
 import TestBench
+
+--------------------------------------------------------------------------------
+
+-- Uncomment the appropriate lines in this section once you've
+-- implemented each parser.
+
+data Parsers = SimpleParser
+             -- | CommitParser
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+parseRegex :: Parsers -> String -> Maybe Pattern
+parseRegex SimpleParser = SimpleParser.parseRegex
+-- parseRegex CommitParser = CommitParser.parseRegex
+
+applyRegex :: Parsers -> String -> String -> Bool
+applyRegex SimpleParser = SimpleParser.applyRegex
+-- applyRegex CommitParser = CommitParser.applyRegex
 
 --------------------------------------------------------------------------------
 
@@ -51,14 +69,3 @@ applyBench re = collection re . mapM_ mkCase
 
 longAs :: String
 longAs = replicate 10000 'a'
-
---------------------------------------------------------------------------------
-
-data Parsers = SimpleParser
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-parseRegex :: Parsers -> String -> Maybe Pattern
-parseRegex SimpleParser = SimpleParser.parseRegex
-
-applyRegex :: Parsers -> String -> String -> Bool
-applyRegex SimpleParser = SimpleParser.applyRegex

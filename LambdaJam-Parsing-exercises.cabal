@@ -14,9 +14,11 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Parsers.Simple
+                       Parsers.Commit
 
                        Regex.Types
                        Regex.SimpleParser
+                       Regex.CommitParser
 
   build-depends:       base >= 4.8 && < 5,
                        deepseq >= 1.1.0.0 && < 1.5

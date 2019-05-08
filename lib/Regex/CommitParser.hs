@@ -1,20 +1,30 @@
 {- |
-   Module      : Regex.SimpleParser
-   Description : Basic parsers for Regexes
+   Module      : Regex.CommitParser
+   Description : Commitment-based parsers for Regexes
    Copyright   : (c) Ivan Lazar Miljenovic
    License     : BSD3
    Maintainer  : ivan.miljenovic@gmail.com
 
-   Example demonstration of how to use parser combinators and the
-   first exercise.
+   Exercise 2: Port over "Regex.SimpleParser" over to using
+   "Parsers.Commit".
+
+   Consider where you may use the 'commit' function:
+
+   * Where can you use it in 'parseRegex'?
+
+   * Does it make sense to use it anywhere as part of 'regexToParser'?
+
+   Once you're done, test it by un-commenting the appropriate line in
+   @src/regex-tester.hs@ and compare it "Regex.SimpleParser" by
+   uncommenting the lines in @src/regex-comparison.hs@.
 
  -}
-module Regex.SimpleParser
+module Regex.CommitParser
   ( parseRegex
   , applyRegex
   ) where
 
-import Parsers.Simple
+import Parsers.Commit
 import Regex.Types
 
 import Control.Applicative
@@ -26,117 +36,37 @@ import Data.Maybe          (isJust)
 
 -- | Try to parse a regular expression.
 parseRegex :: String -> Maybe Pattern
-parseRegex = runParserMaybe (parsePattern <* endOfInput)
--- We want to make sure the parser reads the entire input; however, we
--- don't put this in 'parsePattern' due to the recursive call.
+parseRegex = error "undefined: parseRegex"
 
--- Because 'ConcatenatedAtoms' are allowed to be empty, parsing it
--- will always succeed.  As such, there is no need for the extra test
--- in 'sepBy'.
 parsePattern :: Parser Pattern
-parsePattern = Pattern <$> sepBy1 parseConcatenatedAtoms (char '|')
+parsePattern = error "undefined: parsePattern"
 
--- We need to allow the empty case as that's valid!
 parseConcatenatedAtoms :: Parser ConcatenatedAtoms
-parseConcatenatedAtoms = ConcatenatedAtoms <$> many parseQuantifiedAtom
+parseConcatenatedAtoms = error "undefined: parseConcatenatedAtoms"
 
--- '(<**>)' is the same as '(<*>)' but in the opposite order.
 parseQuantifiedAtom :: Parser QuantifiedAtom
-parseQuantifiedAtom = parseAtom <**> parseQuantifier
-
-{-
-
-Alternatively:
-
-parseQuantifiedAtom = do
-  atom  <- parseAtom
-  quant <- parseQuantifier
-  pure (quant atom)
-
--}
+parseQuantifiedAtom = error "undefined: parseQuantifiedAtom"
 
 -- | Parse an individual atom.
 parseAtom :: Parser Atom
-parseAtom = oneOf [ char '.' *> pure AnyChar
-                  , SpecificChar <$> parseCharacter
-                  , BExpression  <$> parseBracketExpression
-                  , SubPattern   <$> parseSubPattern
-                  ]
-  where
-    parseSubPattern = bracket (char '(') cls parsePattern
-      where
-        cls = char ')' <?> "Invalid sub-pattern"
+parseAtom = error "undefined: parseAtom"
 
 parseQuantifier :: Parser (Atom -> QuantifiedAtom)
-parseQuantifier = oneOf [ char '?' *> pure OptionalAtom
-                        , char '+' *> pure AtLeastOne
-                        , char '*' *> pure Multiple
-                        ,             pure PlainAtom -- Needs to be last.
-                        ]
+parseQuantifier = error "undefined: parseQuantifier"
 
 -- | Parses a non-meta character, or an escaped meta-character.
 parseCharacter :: Parser Char
-parseCharacter = satisfy (`notElem`metaChars)
-                 <|> (char '\\' *> (satisfy (`elem`metaChars) <?> "Not a meta-character"))
+parseCharacter = error "undefined: parseCharacter"
 
 parseBracketExpression :: Parser BracketExpression
-parseBracketExpression = bracket (char '[') cls
-                         $ BracketExpression <$> checkInverse <*> some parseBracketPattern
-  where
-    -- Check if the first character is ^
-    checkInverse = isJust <$> optional (char '^')
-
-    cls = char ']' <?> "Invalid bracket expression"
+parseBracketExpression = error "undefined: parseBracketExpression"
 
 -- | Parses a single character or a character range, excluding the
 --   special cases of @]@ and @-@.
 parseBracketPattern :: Parser BracketPattern
-parseBracketPattern = do
-  c <- parseBracketChar
-  oneOf [ char '-' *> fmap (BracketRange c) endRange
-        , pure (BracketChar c)
-        ]
-  where
-    parseBracketChar = satisfy isAlphaNum
-
-    endRange = parseBracketChar <?> "Invalid end-of-range character"
-
-{-
-
-Alternatively:
-
-parseBracketExpression = do
-  -- Make sure you get the order right!
-  oneOf [ BracketRange <$> parseBracketChar <*> (char '-' *> parseBracketChar)
-        , BracketChar <$> parseBracketChar
-        ]
-  where
-    parseBracketChar = satisfy isAlphaNum
-
--}
+parseBracketPattern = error "undefined: parseBracketPattern"
 
 --------------------------------------------------------------------------------
-
-{-
-
-Exercise 1: take a 'Pattern' and create a 'Parser' out of it.
-
-We only want to use this to /validate/ a 'String' using a regular
-expression (i.e. check if the 'String' is matched by the 'Pattern').
-As such, the return values from the 'Parser's don't matter.  As such,
-the @void@ function from "Control.Monad" may be helpful.  Specialised,
-it becomes:
-
-> void :: Parser a -> Parser ()
-
-That is, we ignore the parsing result.
-
-Try testing out 'applyRegex' in ghci.
-
-You can also help test your implementation with the test seat (see
-@README.md@ on how to run the test-suite).
-
--}
 
 -- | Take a 'String' containing a regular expression and a second
 --   'String'; test if the regular expression satisfies the regular

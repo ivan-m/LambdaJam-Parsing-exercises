@@ -116,9 +116,56 @@ and `applyRegex` will allow you to see if a `String` is matched by a
 regular expression.
 
 You can ten test your implementation by running the test suite (see
-above).
+above).  You can also try running the benchmarks; can you understand
+why successful parsers are faster than failing ones?
 
 Note: this is _not_ the most efficient way of running regular
 expressions (and doesn't match the expected behaviour of many of
 them - see the note in [`regex-tester.hs`] regarding the email regular
 expression).
+
+### Exercise 2
+
+In the [slides] the notion of "commitment" is briefly mentioned.  In
+this exercise you will make use of it.
+
+The purpose of commitment is to indicate that you know you are deep
+enough in a parse that you have chosen the correct branch.  As such,
+if a parsing failure occurs, you shouldn't take any other branch when
+choosing between multiple parsers.  In the case of your parser
+succeeding this has no real impact; in the case of invalid input it
+can lead to more specific error messages and - if there are a large
+number of partially overlapping choices to choose from - faster
+parsing.
+
+(However, `commit` tends not to do very well when combined with
+functions like `many` or `some`; can you see why?)
+
+To start with, you will want to implement the new parser in
+[`Commit.hs`](lib/Parsers/Commit.hs).  Consider where it makes sense
+to add in default `commit` calls (it may very well be "nowhere").
+
+After that, use this new parser to port over the parsers in
+[`SimpleParser.hs`] to
+[`CommitParser.hs`](lib/Regex/SommitParser.hs).  Where should you use
+`commit` here?
+
+Test out the differences in how the parser (using `runParser` to get
+error messages) performs; for example, try to parse `"([ab)"`.
+
+Test your new parsers by changing which parser is un-commented in
+[`regex-tester.hs`] and run the test suite.  Once it succeeds,
+uncomment the `CommitParser` lines in [`regex-comparison.hs`] and see
+how it compares to the original parser (it's hopefully faster to fail
+in parsers that don't succeed).
+
+(You probably won't get much of a performance improvement due to the
+small number of backtracking options.  In fact, performance might be
+_worse_: can you see why?)
+
+For more information on the justification behind commitment you can
+read [this
+paper](https://www.cs.york.ac.uk/plasma/publications/pdf/partialparse.pdf)
+by Malcolm Wallace, author of
+[polyparse](https://hackage.haskell.org/package/polyparse) (that these
+parsers are heavily based on).

@@ -14,7 +14,9 @@ import Test.Hspec
 
 import Regex.Types
 
+-- Only have one of these un-commented at a time!
 import Regex.SimpleParser
+-- import Regex.CommitParser
 
 --------------------------------------------------------------------------------
 
