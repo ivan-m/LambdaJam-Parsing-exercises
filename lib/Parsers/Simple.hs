@@ -166,6 +166,9 @@ instance Monad Parser where
 
   (>>=) = withResult
 
+  -- You should use 'failParser' explicitly.
+  fail = failParser
+
 withResult :: Parser a -> (a -> Parser b) -> Parser b
 withResult pa f = P $ \str -> case runParser pa str of
                                 OK  str' a   -> runParser (f a) str'
@@ -196,22 +199,11 @@ next = satisfy (const True)
 -- | Succeeds only if the next character satisfies the provided
 --   predicate.
 satisfy :: (Char -> Bool) -> Parser Char
-satisfy p = P $ \str -> case str of
-                          (c:str') | p c       -> OK  str' c
-                                   | otherwise -> Err str  "satisfy failed"
-                          _                    -> Err str  "No input remaining."
-
-{-
-
-Alternatively
-
 satisfy p = do
   c <- next
   if p c
     then pure c
     else failParser "satisfy failed"
-
--}
 
 -- | Parse the specified character.
 char :: Char -> Parser Char
