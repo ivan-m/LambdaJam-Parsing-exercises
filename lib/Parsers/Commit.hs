@@ -161,6 +161,9 @@ instance Monad Parser where
 
   (>>=) = withResult
 
+  -- You should use 'failParser' explicitly.
+  fail = failParser
+
 withResult :: Parser a -> (a -> Parser b) -> Parser b
 withResult = error "undefined: withResult"
 
