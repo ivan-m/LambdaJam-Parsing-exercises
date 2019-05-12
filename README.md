@@ -150,6 +150,10 @@ After that, use this new parser to port over the parsers in
 [`CommitParser.hs`](lib/Regex/SommitParser.hs).  Where should you use
 `commit` here?
 
+(You should hopefully note that many of the combinators and parsers
+are identical: once you start using the abstractions you don't need to
+worry about the underlying implementation!)
+
 Test out the differences in how the parser (using `runParser` to get
 error messages) performs; for example, try to parse `"([ab)"`.
 
