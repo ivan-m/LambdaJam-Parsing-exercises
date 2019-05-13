@@ -21,18 +21,22 @@ import TestBench
 
 -- Uncomment the appropriate lines in this section once you've
 -- implemented each parser.
+parserList :: [Parsers]
+parserList = [ SimpleParser
+             -- , CommitParser
+             ]
 
 data Parsers = SimpleParser
-             -- | CommitParser
+             | CommitParser
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 parseRegex :: Parsers -> String -> Maybe Pattern
 parseRegex SimpleParser = SimpleParser.parseRegex
--- parseRegex CommitParser = CommitParser.parseRegex
+parseRegex CommitParser = CommitParser.parseRegex
 
 applyRegex :: Parsers -> String -> String -> Bool
 applyRegex SimpleParser = SimpleParser.applyRegex
--- applyRegex CommitParser = CommitParser.applyRegex
+applyRegex CommitParser = CommitParser.applyRegex
 
 --------------------------------------------------------------------------------
 
@@ -58,14 +62,14 @@ main = testBench $ do
 -- | Take a description, then try to parse a regex for every 'Parsers'
 --   value.
 parseBench :: String -> String -> TestBench
-parseBench desc re = compareFuncAll desc (`parseRegex` re) normalForm
+parseBench desc re = compareFuncList desc (`parseRegex` re) normalForm parserList
 
 -- | Takes a regex and a list of @(description, test string)@ pairs.
 --   Creates a benchmark for every pair for every 'Parsers' value.
 applyBench :: String -> [(String, String)] -> TestBench
 applyBench re = collection re . mapM_ mkCase
   where
-    mkCase (desc,str) = compareFuncAll desc (\p -> applyRegex p re str) normalForm
+    mkCase (desc,str) = compareFuncList desc (\p -> applyRegex p re str) normalForm parserList
 
 longAs :: String
 longAs = replicate 10000 'a'
