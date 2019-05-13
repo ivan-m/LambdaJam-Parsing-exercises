@@ -86,7 +86,7 @@ dealing with success or failure, etc.
 
 Constructing a low-level parser typically looks like:
 
-> ... = P $ \ inp fl sc -> ...
+> ... = P $ \ str fl sc -> ...
               |   |  |
               |   |  |
               |   |  \-- What to do on a successful parse.

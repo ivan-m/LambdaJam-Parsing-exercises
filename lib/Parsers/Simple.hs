@@ -68,7 +68,7 @@ newtype Parser a = P { runParser :: String -> Result String a }
 --   (to avoid dealing with a parser-specific result type when
 --   comparing parsers).  We also ensure all input was consumed.
 runParserMaybe :: Parser a -> String -> Maybe a
-runParserMaybe p inp = case runParser p inp of
+runParserMaybe p str = case runParser p str of
                          OK "" a -> Just a
                          _       -> Nothing
 
