@@ -43,20 +43,20 @@ applyRegex CommitParser = CommitParser.applyRegex
 main :: IO ()
 main = testBench $ do
   parseBench "Deep nesting"
-             (replicate 10000 '(' ++ "[ab]" ++ replicate 10000 ')')
+             (replicate long '(' <> "[ab]" <> replicate long ')')
 
   parseBench "Deep nesting (unbalanced inner)"
-             (replicate 10000 '(' ++ "[ab" ++ replicate 10000 ')')
+             (replicate long '(' <> "[ab" <> replicate long ')')
 
   parseBench "Deep nesting (unbalanced outer)"
-             (replicate 10000 '(' ++ "[ab]" ++ replicate 9999 ')')
+             (replicate long '(' <> "[ab]" <> replicate (long-1) ')')
 
   applyBench "a*b|c" [ ("Case 1, short", "b")
-                     , ("Case 1, long", longAs ++ "b")
+                     , ("Case 1, long", longAs <> "b")
                      , ("Case 2", "c")
                      , ("Failure, short", "d")
                      , ("Failure, long (a*)", longAs)
-                     , ("Failure, long (a*d)", longAs ++ "d")
+                     , ("Failure, long (a*d)", longAs <> "d")
                      ]
 
 -- | Take a description, then try to parse a regex for every 'Parsers'
@@ -72,4 +72,7 @@ applyBench re = collection re . mapM_ mkCase
     mkCase (desc,str) = compareFuncList desc (\p -> applyRegex p re str) normalForm parserList
 
 longAs :: String
-longAs = replicate 10000 'a'
+longAs = replicate long 'a'
+
+long :: Int
+long = 100000
