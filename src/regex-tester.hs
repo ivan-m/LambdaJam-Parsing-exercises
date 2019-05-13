@@ -18,6 +18,7 @@ import Regex.Types
 import Regex.SimpleParser
 -- import Regex.CommitParser
 -- import Regex.CPSParser
+-- import Regex.CPSCommitParser
 
 --------------------------------------------------------------------------------
 

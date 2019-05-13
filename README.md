@@ -213,3 +213,17 @@ You should notice two things:
 
 * The contents of [`CPSParser.hs`] is identical to [`SimpleParser.hs`]
   (and even the higher-level combinators have identical definitions)!
+
+### Exercise 4
+
+As with Exercise 2, but apply it to the CPS-based parser instead.  You
+can find the modules for these in [`CPSCommit.hs`](lib/CPSCommit.hs)
+and [`CPSCommitParser.hs`](lib/CPSParserCommit.hs).
+
+(I don't know of any published parser combinator library that
+implements this.)
+
+You may find that the performance impact isn't as high; remember that
+now the only place the commitment is checked/dealt with is when
+back-tracking.  The actual regex parser should be identical to the
+simple one as well (the implementation details are listed!).

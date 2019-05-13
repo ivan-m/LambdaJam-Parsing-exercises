@@ -16,11 +16,13 @@ library
   exposed-modules:     Parsers.Simple
                        Parsers.Commit
                        Parsers.CPS
+                       Parsers.CPSCommit
 
                        Regex.Types
                        Regex.SimpleParser
                        Regex.CommitParser
                        Regex.CPSParser
+                       Regex.CPSCommitParser
 
   build-depends:       base >= 4.8 && < 5,
                        deepseq >= 1.1.0.0 && < 1.5

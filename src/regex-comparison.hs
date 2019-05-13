@@ -12,9 +12,10 @@ module Main (main) where
 
 import Regex.Types
 
-import qualified Regex.CommitParser as CommitParser
-import qualified Regex.CPSParser    as CPSParser
-import qualified Regex.SimpleParser as SimpleParser
+import qualified Regex.CommitParser    as CommitParser
+import qualified Regex.CPSCommitParser as CPSCommitParser
+import qualified Regex.CPSParser       as CPSParser
+import qualified Regex.SimpleParser    as SimpleParser
 
 import TestBench
 
@@ -26,22 +27,26 @@ parserList :: [Parsers]
 parserList = [ SimpleParser
              -- , CommitParser
              -- , CPSParser
+             -- , CPSCommitParser
              ]
 
 data Parsers = SimpleParser
              | CommitParser
              | CPSParser
+             | CPSCommitParser
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 parseRegex :: Parsers -> String -> Maybe Pattern
-parseRegex SimpleParser = SimpleParser.parseRegex
-parseRegex CommitParser = CommitParser.parseRegex
-parseRegex CPSParser    = CPSParser.parseRegex
+parseRegex SimpleParser    = SimpleParser.parseRegex
+parseRegex CommitParser    = CommitParser.parseRegex
+parseRegex CPSParser       = CPSParser.parseRegex
+parseRegex CPSCommitParser = CPSParser.parseRegex
 
 applyRegex :: Parsers -> String -> String -> Bool
-applyRegex SimpleParser = SimpleParser.applyRegex
-applyRegex CommitParser = CommitParser.applyRegex
-applyRegex CPSParser    = CPSParser.applyRegex
+applyRegex SimpleParser    = SimpleParser.applyRegex
+applyRegex CommitParser    = CommitParser.applyRegex
+applyRegex CPSParser       = CPSParser.applyRegex
+applyRegex CPSCommitParser = CPSParser.applyRegex
 
 --------------------------------------------------------------------------------
 
