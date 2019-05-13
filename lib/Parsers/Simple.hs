@@ -194,6 +194,8 @@ Alternatively
 
 next = satisfy (const True)
 
+(If you implement satisfy from scratch.)
+
 -}
 
 -- | Succeeds only if the next character satisfies the provided
