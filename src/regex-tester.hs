@@ -17,6 +17,7 @@ import Regex.Types
 -- Only have one of these un-commented at a time!
 import Regex.SimpleParser
 -- import Regex.CommitParser
+-- import Regex.CPSParser
 
 --------------------------------------------------------------------------------
 
@@ -116,7 +117,7 @@ main = hspec $ do
       let test = applyRegex "a*b"
           as   = replicate 100 'a'
       it "Succeeds" $
-        (as ++ "b") `shouldSatisfy` test
+        (as <> "b") `shouldSatisfy` test
       it "Fails" $
         as `shouldNotSatisfy` test
 

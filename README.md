@@ -173,3 +173,43 @@ paper](https://www.cs.york.ac.uk/plasma/publications/pdf/partialparse.pdf)
 by Malcolm Wallace, author of
 [polyparse](https://hackage.haskell.org/package/polyparse) (that these
 parsers are heavily based on).
+
+### Exercise 3
+
+Hopefully you would have intuitied with the previous two exercises
+that a major slow down in the implementations of the previous two
+parsers was that we had to keep stopping to check which `Result` value
+we had (being even worse in the 2nd one as we had three cases instead
+of just two).
+
+GHC highly optimises functions and function composition; as such, we
+can take advantage of this by using a _Continuation Passing Style_ (or
+CPS) approach to implementing a parser.
+
+The basic notion is that instead of checking the `Result` type:
+
+```haskell
+data Result z a = OK  z a
+                | Err z String
+```
+
+and doing something different for each constructor, we carry around -
+and modify _functions_ that represent what we would do with each of
+these constructors.
+
+Implement the parser in [`CPS.hs`](lib/Parsers/Commit.hs) and use
+it in [`CPSParser.hs`].  As before, run the
+testsuite and compare the performance.
+
+[`CPSParser.hs`]: lib/Regex/CPSParser.hs
+
+(This parser is a simplified version of what is implemented in
+[attoparsec](http://hackage.haskell.org/package/attoparsec).)
+
+You should notice two things:
+
+* The peformance is better (maybe not by much because we're not
+  parsing very large things, but still better)
+
+* The contents of [`CPSParser.hs`] is identical to [`SimpleParser.hs`]
+  (and even the higher-level combinators have identical definitions)!
