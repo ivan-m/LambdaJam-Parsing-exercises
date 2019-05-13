@@ -227,3 +227,25 @@ You may find that the performance impact isn't as high; remember that
 now the only place the commitment is checked/dealt with is when
 back-tracking.  The actual regex parser should be identical to the
 simple one as well (the implementation details are listed!).
+
+Going further
+-------------
+
+Try:
+
+* Adding more tests
+
+* Adding more benchmarks
+
+* Adding:
+
+    ```haskell
+    adjustError :: (String -> String) -> Parser a -> Parser
+    ```
+
+    (Note: this can be tricky for CPS-based parsers, especially with
+    commitment.)
+
+* Try porting these parsers to using the
+  [text](https://hackage.haskell.org/package/text) library instead of
+  `String`s.
