@@ -73,7 +73,8 @@ mapResult f (Commit r)  = addCommit (mapResult f r)
 
 -- | Ensure that the outermost constructor is 'Commit'.
 addCommit :: Result z a -> Result z a
-addCommit = error "undefined: addCommit"
+addCommit c@Commit{} = c
+addCommit r          = Commit r
 
 -- | The data structure for our parser.
 --
@@ -84,13 +85,17 @@ newtype Parser a = P { runParser :: String -> Result String a }
 --   (to avoid dealing with a parser-specific result type when
 --   comparing parsers).  We also ensure all input was consumed.
 runParserMaybe :: Parser a -> String -> Maybe a
-runParserMaybe = error "undefined: runParserMaybe"
+runParserMaybe p = fromResult . runParser p
+  where
+    fromResult (Commit r) = fromResult r
+    fromResult (OK "" a)  = Just a
+    fromResult _          = Nothing
 
 instance Functor Parser where
   fmap = mapParser
 
 mapParser :: (a -> b) -> Parser a -> Parser b
-mapParser = error "undefined: mapParser"
+mapParser f p = P $ \str -> f <$> runParser p str
 
 instance Applicative Parser where
   pure = liftParser
@@ -100,15 +105,51 @@ instance Applicative Parser where
   (<*) = discard
 
 liftParser :: a -> Parser a
-liftParser = error "undefined: liftParser"
+liftParser a = P $ \str -> OK str a
 
 apply :: Parser (a -> b) -> Parser a -> Parser b
-apply = error "undefined: apply"
+apply pf pa = P $ go . runParser pf
+  where
+    go (OK str f)    = runParser (f <$> pa) str
+    go (Err str err) = Err str err
+    go (Commit r)    = addCommit (go r)
+
+{-
+
+Alternatively:
+
+apply pf pa = do
+  f <- pf
+  a <- pa
+  pure (f a)
+
+-}
 
 infixl 3 `apply`
 
 discard :: Parser a -> Parser b -> Parser a
-discard = error "undefined: discard"
+discard pa pb = P $ evalA . runParser pa
+  where
+    evalA (OK str a) = evalB a (runParser pb str)
+    evalA (Commit r) = addCommit (evalA r)
+    evalA err        = err
+
+    evalB a = go
+      where
+        go (OK str !_)   = OK str a
+        go (Err str err) = Err str err
+        go (Commit !r)   = addCommit (go r)
+
+{-
+
+Alternatively
+
+discard pa pb = do
+  a  <- pa
+  !_ <- pb
+  pure a
+
+-}
 
 infixl 3 `discard`
 
@@ -135,26 +176,31 @@ instance Alternative Parser where
 -- | Whilst this is also available as 'fail', you may wish to use this
 --   explicitly to be clear with your intentions.
 failParser :: String -> Parser a
-failParser = error "undefined: failParser"
+failParser err = P $ \str -> Err str err
 
 -- | Specify the error message for when a parser fails.
 (<?>) :: Parser a -> String -> Parser a
-(<?>) = error "undefined: <?>"
+pa <?> err = pa <|> failParser err
 
 -- | As with 'failParser' but indicates something has gone severely
 -- wrong and you shouldn't be able to backtrack from here.
 failParserBad :: String -> Parser a
-failParserBad = error "undefined: failParserBad"
+failParserBad = commit . failParser
 
 -- | Specify the error message for when a parser fails, and don't
 --   backtrack.
 (<?!>) :: Parser a -> String -> Parser a
-(<?!>) = error "undefined: <?!>"
+pa <?!> err = commit (pa <?> err)
 
 -- Make sure that if the result of @pa@ is @Commit (Err str err)@ that
 -- you don't backtrack!
 onFail :: Parser a -> Parser a -> Parser a
-onFail = error "undefined: onFail"
+onFail pa pb = P $ \str -> case runParser pa str of
+                             Err{} -> runParser pb str
+                             -- This will handle the Commit case as
+                             -- well.  The presence of Commit "masks"
+                             -- any error from this function.
+                             r     -> r
 
 instance Monad Parser where
   return = pure
@@ -165,7 +211,11 @@ instance Monad Parser where
   fail = failParser
 
 withResult :: Parser a -> (a -> Parser b) -> Parser b
-withResult = error "undefined: withResult"
+withResult pa f = P $ go . runParser pa
+  where
+    go (OK str a)    = runParser (f a) str
+    go (Err str err) = Err str err
+    go (Commit r)    = addCommit (go r)
 
 --------------------------------------------------------------------------------
 
@@ -174,37 +224,51 @@ withResult = error "undefined: withResult"
 --   Consider the case of @commit (commit p)@; what should the result
 --   of this be?
 commit :: Parser a -> Parser a
-commit = error "undefined: commit"
+commit p = P $ addCommit . runParser p
 
 -- | Succeeds only if there's no more input.
 endOfInput :: Parser ()
-endOfInput = error "undefined: endOfInput"
+endOfInput = P $ \str -> case str of
+                           "" -> OK  str ()
+                           _  -> Err str "Unconsumed input"
 
 -- | Returns the next character; fails if none exists.
 next :: Parser Char
-next = error "undefined: next"
+next = P $ \str -> case str of
+                     (c:str') -> OK  str' c
+                     _        -> Err str  "No input remaining"
 
 -- | Succeeds only if the next character satisfies the provided
 --   predicate.
 satisfy :: (Char -> Bool) -> Parser Char
-satisfy = error "undefined: satisfy"
+satisfy p = do
+  c <- next
+  if p c
+    then pure c
+    else failParser "satisfy failed"
 
 -- | Parse the specified character.
 char :: Char -> Parser Char
-char = error "undefined: char"
+char c = satisfy (==c)
 
 -- | Returns the result of the first parser that succeeds.
 oneOf :: [Parser a] -> Parser a
-oneOf = error "undefined: oneOf"
+oneOf = foldr (<|>) noneSucceed
+  where
+    noneSucceed  = failParser "Failed to parse any of the possible choices."
 
 -- | Parse a list of items separated by discarded junk.
 sepBy :: Parser a -> Parser sep -> Parser [a]
-sepBy = error "undefined: sepBy"
+sepBy pa psep = sepBy1 pa psep <|> pure []
 
 -- | As with 'sepBy' but return a non-empty list.
 sepBy1 :: Parser a -> Parser sep -> Parser [a]
-sepBy1 = error "undefined: sepBy1"
+sepBy1 pa psep = (:) <$> pa <*> many (psep *> pa)
 
 -- | Parses the elements between the @bra@ and @ket@ parsers.
 bracket :: Parser bra -> Parser ket -> Parser a -> Parser a
-bracket = error "undefined: bracket"
+bracket bra ket pa = bra *> pa <* ket
+-- You may be tempted to have a `commit` in here, but you may have
+-- cases of overlapping patterns.  As such, the usual recommendation
+-- is that the caller should consider using 'commit' on the closing
+-- @ket@ case.

@@ -30,43 +30,95 @@ import Data.Maybe          (isJust)
 
 -- | Try to parse a regular expression.
 parseRegex :: String -> Maybe Pattern
-parseRegex = error "Undefined: parseRegex"
+parseRegex = runParserMaybe (parsePattern <* endOfInput)
+-- We want to make sure the parser reads the entire input; however, we
+-- don't put this in 'parsePattern' due to the recursive call.
 
+-- Because 'ConcatenatedAtoms' are allowed to be empty, parsing it
+-- will always succeed.  As such, there is no need for the extra test
+-- in 'sepBy'.
 parsePattern :: Parser Pattern
-parsePattern = error "Undefined: parsePattern"
+parsePattern = Pattern <$> sepBy1 parseConcatenatedAtoms (char '|')
 
+-- We need to allow the empty case as that's valid!
 parseConcatenatedAtoms :: Parser ConcatenatedAtoms
-parseConcatenatedAtoms = error "Undefined: parseConcatenatedAtoms"
+parseConcatenatedAtoms = ConcatenatedAtoms <$> many parseQuantifiedAtom
 
+-- '(<**>)' is the same as '(<*>)' but in the opposite order.
 parseQuantifiedAtom :: Parser QuantifiedAtom
-parseQuantifiedAtom = error "Undefined: parseQuantifiedAtom"
+parseQuantifiedAtom = parseAtom <**> parseQuantifier
+
+{-
+
+Alternatively:
+
+parseQuantifiedAtom = do
+  atom  <- parseAtom
+  quant <- parseQuantifier
+  pure (quant atom)
+
+-}
 
 -- | Parse an individual atom.
 parseAtom :: Parser Atom
-parseAtom = error "Undefined: parseAtom"
+parseAtom = oneOf [ char '.' *> pure AnyChar
+                  , SpecificChar <$> parseCharacter
+                  , BExpression  <$> parseBracketExpression
+                  , SubPattern   <$> parseSubPattern
+                  ]
+  where
+    parseSubPattern = bracket (char '(') cls parsePattern
+      where
+        cls = char ')' <?!> "Invalid sub-pattern"
 
 parseQuantifier :: Parser (Atom -> QuantifiedAtom)
-parseQuantifier = error "Undefined: parseQuantifier"
+parseQuantifier = oneOf [ char '?' *> pure OptionalAtom
+                        , char '+' *> pure AtLeastOne
+                        , char '*' *> pure Multiple
+                        ,             pure PlainAtom -- Needs to be last.
+                        ]
 
 -- | Parses a non-meta character, or an escaped meta-character.
 parseCharacter :: Parser Char
-parseCharacter = error "Undefined: parseCharacter"
+parseCharacter = satisfy (`notElem`metaChars)
+                 <|> (char '\\' *> satisfy (`elem`metaChars) <?!> "Not a meta-character")
 
 parseBracketExpression :: Parser BracketExpression
-parseBracketExpression = error "Undefined: parseBracketExpression"
+parseBracketExpression = bracket (char '[') cls
+                         $ BracketExpression <$> checkInverse <*> some parseBracketPattern
+  where
+    -- Check if the first character is ^
+    checkInverse = isJust <$> optional (char '^')
+
+    cls = char ']' <?!> "Invalid bracket expression"
 
 -- | Parses a single character or a character range, excluding the
 --   special cases of @]@ and @-@.
 parseBracketPattern :: Parser BracketPattern
-parseBracketPattern = error "Undefined: parseBracketPattern"
+parseBracketPattern = do
+  c <- parseBracketChar
+  commit $ oneOf [ char '-' *> fmap (BracketRange c) endRange
+                 , pure (BracketChar c)
+                 ]
+  where
+    parseBracketChar = satisfy isAlphaNum
+
+    endRange = parseBracketChar <?!> "Invalid end-of-range character"
 
 --------------------------------------------------------------------------------
+
+{-
+
+Note: we do /not/ use 'commit' here as we don't know how overlapping
+all the different 'ConcatenatedAtoms' are.
+
+-}
 
 -- | Take a 'String' containing a regular expression and a second
 --   'String'; test if the regular expression satisfies the regular
 --   expression.
 applyRegex :: String -> String -> Bool
-applyRegex = error "Undefined: applyRegex"
+applyRegex regex str = maybe False (`satisfiesRegex` str) (parseRegex regex)
 
 -- | Test if the 'String' satisfies the provided 'Pattern'.
 --
@@ -78,12 +130,17 @@ applyRegex = error "Undefined: applyRegex"
 --
 --   > isJust :: Maybe a -> Bool
 satisfiesRegex :: Pattern -> String -> Bool
-satisfiesRegex = error "Undefined: satisfiesRegex"
+satisfiesRegex regex = isJust . runParserMaybe prs
+  where
+    -- We want the parser to consume the entire input (only for the
+    -- top-level parser, which is why we don't include this in
+    -- 'regexToParser').
+    prs = regexToParser regex <* endOfInput
 
 -- | Convert the supplied regular expression into a parser.  All we
 --   care is if the regex is satisfied, not the actual result.
 regexToParser :: Pattern -> Parser ()
-regexToParser = error "Undefined: regexToParser"
+regexToParser (Pattern cas) = oneOf (map concatenatedAtomsToParser cas)
 
 -- | There is another handy function available that you may wish to
 --   consider; specialised, it becomes:
@@ -94,7 +151,7 @@ regexToParser = error "Undefined: regexToParser"
 --   actions, not the results of them.  It has the effect of running
 --   every specified parser in turn.
 concatenatedAtomsToParser :: ConcatenatedAtoms -> Parser ()
-concatenatedAtomsToParser = error "Undefined: concatenatedAtomsToParser"
+concatenatedAtomsToParser (ConcatenatedAtoms qas) = mapM_ quantifiedAtomToParser qas
 
 -- | You may wish to take use these functions (all from
 --   "Control.Applicative"):
@@ -105,13 +162,19 @@ concatenatedAtomsToParser = error "Undefined: concatenatedAtomsToParser"
 --
 --   > many :: Parser a -> Parser [a]
 quantifiedAtomToParser :: QuantifiedAtom -> Parser ()
-quantifiedAtomToParser = error "Undefined: quantifiedAtomToParser"
+quantifiedAtomToParser (PlainAtom at)    =                 atomToParser at
+quantifiedAtomToParser (OptionalAtom at) = void (optional (atomToParser at))
+quantifiedAtomToParser (AtLeastOne at)   = void (some     (atomToParser at))
+quantifiedAtomToParser (Multiple at)     = void (many     (atomToParser at))
 
 atomToParser :: Atom -> Parser ()
-atomToParser = error "Undefined: atomToParser"
+atomToParser AnyChar          = void next
+atomToParser (SpecificChar c) = void (char c)
+atomToParser (BExpression be) = bracketExpressionToParser be
+atomToParser (SubPattern pat) = regexToParser pat
 
 bracketExpressionToParser :: BracketExpression -> Parser ()
-bracketExpressionToParser = error "Undefined: bracketExpressionToParser"
+bracketExpressionToParser = void . satisfy . satisfiesBracketExpression
 
 -- | Create the predicate that can be provided to 'satisfy'.  We want
 --   to know if a 'Char' matches a 'BracketExpression'.
@@ -127,8 +190,17 @@ bracketExpressionToParser = error "Undefined: bracketExpressionToParser"
 --   This returns 'True' if the predicate succeeds on /any/ of the
 --   provided elements.
 satisfiesBracketExpression :: BracketExpression -> (Char -> Bool)
-satisfiesBracketExpression = error "Undefined: satisfiesBracketExpression"
+satisfiesBracketExpression (BracketExpression inv patterns) =
+  \c -> includeOrExclude (any (satisfiesBracketPattern c) patterns)
+  where
+    includeOrExclude = if inv
+                          then not
+                          else id
+
+{-# ANN satisfiesBracketExpression ("HLint: ignore Redundant bracket" :: String) #-}
 
 -- | Check if a character is matched by the 'BracketPattern'.
 satisfiesBracketPattern :: Char -> BracketPattern -> Bool
-satisfiesBracketPattern = error "Undefined: satisfiesBracketPattern"
+satisfiesBracketPattern c bp = case bp of
+                                 BracketRange l u -> l <= c && c <= u
+                                 BracketChar  p   -> c == p

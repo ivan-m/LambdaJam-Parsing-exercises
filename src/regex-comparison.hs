@@ -25,9 +25,9 @@ import TestBench
 -- implemented each parser.
 parserList :: [Parsers]
 parserList = [ SimpleParser
-             -- , CommitParser
-             -- , CPSParser
-             -- , CPSCommitParser
+             , CommitParser
+             , CPSParser
+             , CPSCommitParser
              ]
 
 data Parsers = SimpleParser

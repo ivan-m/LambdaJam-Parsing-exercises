@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE BangPatterns, RankNTypes #-}
 
 {- |
    Module      : Parsers.CPS
@@ -109,11 +109,11 @@ type Success a r = String -> a      -> Result String r
 
 -- Default Failure function.
 failure :: Failure   r
-failure = error "undefined: failure"
+failure = Err
 
 -- Default Success implementation.
 successful :: Success a a
-successful = error "undefined: successful"
+successful = OK
 
 -- | Run the actual parser
 --
@@ -127,7 +127,9 @@ runParser p str = runP p str failure successful
 --   (to avoid dealing with a parser-specific result type when
 --   comparing parsers).  We also ensure all input was consumed.
 runParserMaybe :: Parser a -> String -> Maybe a
-runParserMaybe = error "undefined: runParserMaybe"
+runParserMaybe p str = case runParser p str of
+                         OK "" a -> Just a
+                         _       -> Nothing
 
 instance Functor Parser where
   fmap = mapParser
@@ -154,10 +156,12 @@ instance Applicative Parser where
   (<*) = discard
 
 liftParser :: a -> Parser a
-liftParser = error "undefined: liftParser"
+liftParser a = P $ \str _ sc -> sc str a
 
 apply :: Parser (a -> b) -> Parser a -> Parser b
-apply = error "undefined: apply"
+apply pf pa = P $ \str fl sc ->
+  runP pf str fl $ \str' f ->
+    runP (f <$> pa) str' fl sc
 
 {-
 
@@ -173,7 +177,10 @@ apply pf pa = do
 infixl 3 `apply`
 
 discard :: Parser a -> Parser b -> Parser a
-discard = error "undefined: discard"
+discard pa pb = P $ \str fl sc ->
+  runP pa str fl $ \str' a ->
+    runP pb str' fl $ \str'' !_ -> -- Force evaluation of b!
+      sc str'' a
 
 {-
 
@@ -211,16 +218,20 @@ instance Alternative Parser where
 -- | Whilst this is also available as 'fail', you may wish to use this
 --   explicitly to be clear with your intentions.
 failParser :: String -> Parser a
-failParser = error "undefined: failParser"
+failParser err = P $ \str fl _ -> fl str err
 
 -- | Specify the error message for when a parser fails.
 (<?>) :: Parser a -> String -> Parser a
-(<?>) = error "undefined: (<?>)"
+pa <?> err = pa <|> failParser err
 
 -- The main trick here is that when the first parser fails, we
 -- consider the second parser.
 onFail :: Parser a -> Parser a -> Parser a
-onFail = error "undefined: onFail"
+onFail pa pb = P $ \str fl sc ->
+  -- We create a new Failure value that ignores its arguments and runs
+  -- pb instead.
+  let fl' _ _ = runP pb str fl sc
+  in runP pa str fl' sc
 
 instance Monad Parser where
   return = pure
@@ -231,39 +242,51 @@ instance Monad Parser where
   fail = failParser
 
 withResult :: Parser a -> (a -> Parser b) -> Parser b
-withResult = error "undefined: withResult"
+withResult pa f = P $ \str fl sc ->
+  runP pa str fl $ \str' a -> runP (f a) str' fl sc
 
 --------------------------------------------------------------------------------
 
 -- | Succeeds only if there's no more input.
 endOfInput :: Parser ()
-endOfInput = error "undefined: endOfInput"
+endOfInput = P $ \str fl sc ->
+  case str of
+    "" -> sc str ()
+    _  -> fl str "Unconsumed input"
 
 -- | Returns the next character; fails if none exists.
 next :: Parser Char
-next = error "undefined: next"
+next = P $ \str fl sc -> case str of
+                           c:str' -> sc str' c
+                           _      -> fl str  "No input remaining"
 
 -- | Succeeds only if the next character satisfies the provided
 --   predicate.
 satisfy :: (Char -> Bool) -> Parser Char
-satisfy = error "undefined: satisfy"
+satisfy p = do
+  c <- next
+  if p c
+    then pure c
+    else failParser "satisfy failed"
 
 -- | Parse the specified character.
 char :: Char -> Parser Char
-char = error "undefined: char"
+char c = satisfy (==c)
 
 -- | Returns the result of the first parser that succeeds.
 oneOf :: [Parser a] -> Parser a
-oneOf = error "undefined: oneOf"
+oneOf = foldr (<|>) noneSucceed
+  where
+    noneSucceed  = failParser "Failed to parse any of the possible choices."
 
 -- | Parse a list of items separated by discarded junk.
 sepBy :: Parser a -> Parser sep -> Parser [a]
-sepBy = error "undefined: sepBy"
+sepBy pa psep = sepBy1 pa psep <|> pure []
 
 -- | As with 'sepBy' but return a non-empty list.
 sepBy1 :: Parser a -> Parser sep -> Parser [a]
-sepBy1 = error "undefined: sepBy1"
+sepBy1 pa psep = (:) <$> pa <*> many (psep *> pa)
 
 -- | Parses the elements between the @bra@ and @ket@ parsers.
 bracket :: Parser bra -> Parser ket -> Parser a -> Parser a
-bracket = error "undefined: bracket"
+bracket bra ket pa = bra *> pa <* ket

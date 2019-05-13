@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE BangPatterns, RankNTypes #-}
 
 {- |
    Module      : Parsers.CPSCommit
@@ -126,11 +126,11 @@ type Success a r = String -> Commitment -> a      -> Result String r
 
 -- Default Failure function.
 failure :: Failure   r
-failure = error "Undefined: failure"
+failure str _ = Err str
 
 -- Default Success implementation.
 successful :: Success a a
-successful = error "Undefined: successful"
+successful str _ = OK str
 
 -- | Run the actual parser
 --
@@ -138,13 +138,15 @@ successful = error "Undefined: successful"
 --   which should eventually be passed down to the actual
 --   success\/failure calls.
 runParser :: Parser a -> String -> Result String a
-runParser = error "Undefined: runParser"
+runParser p str = runP p str UnCommitted failure successful
 
 -- | As with 'runParser', but returns a 'Maybe' rather than a 'Result'
 --   (to avoid dealing with a parser-specific result type when
 --   comparing parsers).  We also ensure all input was consumed.
 runParserMaybe :: Parser a -> String -> Maybe a
-runParserMaybe = error "Undefined: runParserMaybe"
+runParserMaybe p str = case runParser p str of
+                         OK "" a -> Just a
+                         _       -> Nothing
 
 instance Functor Parser where
   fmap = mapParser
@@ -171,15 +173,42 @@ instance Applicative Parser where
   (<*) = discard
 
 liftParser :: a -> Parser a
-liftParser = error "Undefined: liftParser"
+liftParser a = P $ \str cm _ sc -> sc str cm a
 
 apply :: Parser (a -> b) -> Parser a -> Parser b
-apply = error "Undefined: apply"
+apply pf pa = P $ \str cm fl sc ->
+  runP pf str cm fl $ \str' cm' f ->
+    runP (f <$> pa) str' cm' fl sc
+
+{-
+
+Alternatively:
+
+apply pf pa = do
+  f <- pf
+  a <- pa
+  pure (f a)
+
+-}
 
 infixl 3 `apply`
 
 discard :: Parser a -> Parser b -> Parser a
-discard = error "Undefined: discard"
+discard pa pb = P $ \str cm fl sc ->
+  runP pa str cm fl $ \str' cm' a ->
+    runP pb str' cm' fl $ \str'' cm'' !_ -> -- Force evaluation of b!
+      sc str'' cm'' a
+
+{-
+
+Alternatively
+
+discard pa pb = do
+  a  <- pa
+  !_ <- pb
+  pure a
+
+-}
 
 infixl 3 `discard`
 
@@ -206,21 +235,21 @@ instance Alternative Parser where
 -- | Whilst this is also available as 'fail', you may wish to use this
 --   explicitly to be clear with your intentions.
 failParser :: String -> Parser a
-failParser = error "Undefined: failParser"
+failParser err = P $ \str cm fl _ -> fl str cm err
 
 -- | Specify the error message for when a parser fails.
 (<?>) :: Parser a -> String -> Parser a
-(<?>) = error "Undefined: (<?>)"
+pa <?> err = pa <|> failParser err
 
 -- | As with 'failParser' but indicates something has gone severely
 -- wrong and you shouldn't be able to backtrack from here.
 failParserBad :: String -> Parser a
-failParserBad = error "Undefined: failParserBad"
+failParserBad = commit . failParser
 
 -- | Specify the error message for when a parser fails, and don't
 --   backtrack.
 (<?!>) :: Parser a -> String -> Parser a
-(<?!>) = error "Undefined: (<?!>)"
+pa <?!> err = commit (pa <?> err)
 
 -- Helper function for handling commitment: run the specified parser
 -- 'UnCommitted'.
@@ -229,14 +258,25 @@ failParserBad = error "Undefined: failParserBad"
 -- consider the commitment of the /parent/ for knowing whether to
 -- backtrack the /children/.
 withoutCommitment :: Parser a -> Parser a
-withoutCommitment = error "Undefined: withoutCommitment"
+withoutCommitment p = P $ \str cm fl sc ->
+  let mergeCommitment f = \str' cm' -> f str' (cm' <> cm)
+  in runP p str UnCommitted (mergeCommitment fl) (mergeCommitment sc)
+
+{-# ANN withoutCommitment ("HLint: ignore Redundant lambda" :: String) #-}
 
 onFail :: Parser a -> Parser a -> Parser a
-onFail = error "Undefined: onFail"
+onFail pa pb = withoutCommitment (pa `onFailWith` pb)
 
 -- Assume that the original commitment value was 'UnCommitted'.
 onFailWith :: Parser a -> Parser a -> Parser a
-onFailWith = error "Undefined: onFailWith"
+onFailWith pa pb = P $ \str cm fl sc ->
+  -- We create a new Failure value that ignores its arguments and runs
+  -- pb instead.
+  let fl' str' cm' err
+          -- If committed, fail.
+        | cm' == Committed = failure str' cm' err
+        | otherwise        = runP pb str cm fl sc
+  in runP pa str cm fl' sc
 
 instance Monad Parser where
   return = pure
@@ -247,7 +287,8 @@ instance Monad Parser where
   fail = failParser
 
 withResult :: Parser a -> (a -> Parser b) -> Parser b
-withResult = error "Undefined: withResult"
+withResult pa f = P $ \str cm fl sc ->
+  runP pa str cm fl $ \str' cm' a -> runP (f a) str' cm' fl sc
 
 --------------------------------------------------------------------------------
 
@@ -256,37 +297,49 @@ withResult = error "Undefined: withResult"
 --   Consider the case of @commit (commit p)@; what should the result
 --   of this be?
 commit :: Parser a -> Parser a
-commit = error "Undefined: commit"
+commit p = P $ \str _ -> runP p str Committed
 
 -- | Succeeds only if there's no more input.
 endOfInput :: Parser ()
-endOfInput = error "Undefined: endOfInput"
+endOfInput = P $ \str cm fl sc ->
+  case str of
+    "" -> sc str cm ()
+    _  -> fl str cm "Unconsumed input"
 
 -- | Returns the next character; fails if none exists.
 next :: Parser Char
-next = error "Undefined: next"
+next = P $ \str cm fl sc -> case str of
+                              c:str' -> sc str' cm c
+                              _      -> fl str  cm "No input remaining"
 
 -- | Succeeds only if the next character satisfies the provided
 --   predicate.
 satisfy :: (Char -> Bool) -> Parser Char
-satisfy = error "Undefined: satisfy"
+satisfy p = do
+  c <- next
+  if p c
+    then pure c
+    else failParser "satisfy failed"
 
 -- | Parse the specified character.
 char :: Char -> Parser Char
-char = error "Undefined: char"
+char c = satisfy (==c)
 
 -- | Returns the result of the first parser that succeeds.
 oneOf :: [Parser a] -> Parser a
-oneOf = error "Undefined: oneOf"
+oneOf = withoutCommitment . foldr onFailWith noneSucceed
+  where
+    noneSucceed  = failParser "Failed to parse any of the possible choices."
+-- Note: we need to only consider commitment of the actual parsers!
 
 -- | Parse a list of items separated by discarded junk.
 sepBy :: Parser a -> Parser sep -> Parser [a]
-sepBy = error "Undefined: sepBy"
+sepBy pa psep = sepBy1 pa psep <|> pure []
 
 -- | As with 'sepBy' but return a non-empty list.
 sepBy1 :: Parser a -> Parser sep -> Parser [a]
-sepBy1 = error "Undefined: sepBy1"
+sepBy1 pa psep = (:) <$> pa <*> many (psep *> pa)
 
 -- | Parses the elements between the @bra@ and @ket@ parsers.
 bracket :: Parser bra -> Parser ket -> Parser a -> Parser a
-bracket = error "Undefined: bracket"
+bracket bra ket pa = bra *> pa <* ket
